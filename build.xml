@@ -4,12 +4,15 @@
     <property name="src-dir" location="src" />
     <property name="obj-dir" location="bin" />
     <property name="lib-dir" location="lib" />
+    <property name="build-dir" location="build" />
     <property name="extlib-dir" location="/usr/share/java" />
 
     <property environment="env" />
     <path id="classpath">
         <fileset dir="${lib-dir}" includes="**/*.jar"/>
         <fileset dir="${extlib-dir}" includes="**/*.jar"/>
+        <fileset file="/usr/share/java/mysql-connector-java.jar"/>
+        <fileset dir="/usr/share/axis2/lib" includes="**/*.jar"/>
         <pathelement location="${obj-dir}"/>
     </path>
 
@@ -20,6 +23,7 @@
 
     <target name="clean">
 		<delete dir="${obj-dir}" />
+		<delete dir="${build-dir}" />
     </target>
 
     <target name="compile" depends="init">
@@ -33,5 +37,27 @@
         <java classname="edu.ucla.cs.cs144.Indexer" failonerror="true" fork="yes">
             <classpath refid="classpath"/>
         </java>
+    </target>
+    
+    <target name="build" depends="clean">
+        <echo message="${ant.project.name}: AuctionSearchService.aar"/>
+
+                <!-- compile the class files first -->
+                <antcall target="compile" />
+
+                <!-- copy necessary files to include in the aar file -->
+                <mkdir dir="${build-dir}/lib" />
+                <copy todir="${build-dir}/lib" preservelastmodified="true" overwrite="true">
+                        <fileset dir="${lib-dir}" />
+                </copy>
+                <mkdir dir="${build-dir}/META-INF" />
+                <copy file="WebContents/META-INF/services.xml" tofile="${build-dir}/META-INF/services.xml" preservelastmodified="true" overwrite="true" />
+                <copy todir="${build-dir}" preservelastmodified="true" overwrite="true">
+                        <fileset dir="${obj-dir}" />
+                </copy>
+
+                <!-- create the war file -->
+                <jar basedir="${build-dir}" destfile="${build-dir}/AuctionSearchService.aar"/>
+
     </target>
 </project>
