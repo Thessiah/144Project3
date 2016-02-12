@@ -1,16 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project basedir="." default="compile" name="project3">
+<?xml version="1.0" encoding="UTF-8" ?>
+<project basedir="." default="compile" name="project3-searcher">
     <property name="debuglevel" value="source,lines,vars"/>
-    <property name="src-dir" location="src" />
     <property name="obj-dir" location="bin" />
     <property name="lib-dir" location="lib" />
+    <property name="src-dir" location="src" />
     <property name="build-dir" location="build" />
-    <property name="extlib-dir" location="/usr/share/java" />
-
-    <property environment="env" />
     <path id="classpath">
         <fileset dir="${lib-dir}" includes="**/*.jar"/>
-        <fileset dir="${extlib-dir}" includes="**/*.jar"/>
+        <fileset dir="/usr/share/java/" includes="lucene-*.jar"/>
         <fileset file="/usr/share/java/mysql-connector-java.jar"/>
         <fileset dir="/usr/share/axis2/lib" includes="**/*.jar"/>
         <pathelement location="${obj-dir}"/>
@@ -34,11 +31,11 @@
     </target>    
 
     <target name="run" depends="compile">
-        <java classname="edu.ucla.cs.cs144.Indexer" failonerror="true" fork="yes">
+        <java classname="edu.ucla.cs.cs144.AuctionSearchTest" failonerror="true" fork="yes">
             <classpath refid="classpath"/>
         </java>
     </target>
-    
+
     <target name="build" depends="clean">
         <echo message="${ant.project.name}: AuctionSearchService.aar"/>
 
@@ -60,4 +57,5 @@
                 <jar basedir="${build-dir}" destfile="${build-dir}/AuctionSearchService.aar"/>
 
     </target>
+
 </project>

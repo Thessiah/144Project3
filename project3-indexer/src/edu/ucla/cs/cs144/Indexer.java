@@ -31,6 +31,7 @@ public class Indexer {
     public void rebuildIndexes() {
 
         Connection conn = null;
+		IndexWriter writer = null;
 
         // create a connection to the database to retrieve Items from MySQL
 	try {
@@ -58,14 +59,49 @@ public class Indexer {
          * and place your class source files at src/edu/ucla/cs/cs144/.
 	 * 
 	 */
+	 try
+        {
+            writer = new IndexWriter(FSDirectory.open(new File("/var/lib/lucene/")), new IndexWriterConfig(Version.LUCENE_4_10_2, new StandardAnalyzer()));
+            ResultSet results = conn.createStatement().executeQuery("Select ItemID, ItemName, Description FROM Items");
+			Document doc = null;
+			String itemText = "";
+			String itemCategory = "";
+			ResultSet result = null;
+            while (results.next())
+			{
+                result = conn.createStatement().executeQuery("SELECT group_concat(ItemCategory.Category SEPARATOR ' ') AS Span FROM ItemCategory WHERE ItemID = " + results.getInt("ItemID"));
+                if (result.next())
+				{
+                    itemCategory = result.getString("Span");
+                }
+                doc = new Document();
+                doc.add(new StringField("ItemID", String.valueOf(results.getInt("ItemID")), Field.Store.YES));
+                doc.add(new TextField("ItemName", results.getString("ItemName"), Field.Store.YES));
+                doc.add(new TextField("Description", results.getString("Description"), Field.Store.YES));
+                doc.add(new TextField("ItemCategory", itemCategory, Field.Store.YES));
+                itemText = String.valueOf(results.getInt("ItemID")) + " " + results.getString("ItemName") + " " + itemCategory + " " + results.getString("Description");
+                doc.add(new TextField("Content", itemText, Field.Store.NO));
+                writer.addDocument(doc);
+			}
+        }
+        catch (Exception ex) {
+            System.out.println(ex);
+        }
 
+        //close index writer
+        try {
+            writer.close();
+        }
+        catch (IOException ex) {
+            System.out.println(ex);
+        }
 
         // close the database connection
-	try {
-	    conn.close();
-	} catch (SQLException ex) {
-	    System.out.println(ex);
-	}
+    	try {
+    	    conn.close();
+    	} catch (SQLException ex) {
+    	    System.out.println(ex);
+    	}
     }    
 
     public static void main(String args[]) {
