@@ -62,46 +62,43 @@ public class Indexer {
 	 try
         {
             writer = new IndexWriter(FSDirectory.open(new File("/var/lib/lucene/")), new IndexWriterConfig(Version.LUCENE_4_10_2, new StandardAnalyzer()));
-            ResultSet results = conn.createStatement().executeQuery("Select ItemID, ItemName, Description FROM Items");
+            ResultSet itemResults = conn.createStatement().executeQuery("Select ItemID, ItemName, Description FROM Items");
+			ResultSet categoryResults = conn.createStatement().executeQuery("SELECT * FROM ItemCategory");
 			Document doc = null;
 			String itemText = "";
 			String itemCategory = "";
-			ResultSet result = null;
-            while (results.next())
+			categoryResults.next();
+            while (itemResults.next())
 			{
-                result = conn.createStatement().executeQuery("SELECT group_concat(ItemCategory.Category SEPARATOR ' ') AS Span FROM ItemCategory WHERE ItemID = " + results.getInt("ItemID"));
-                if (result.next())
+				itemCategory = "";
+                while (categoryResults.getInt("ItemID") == itemResults.getInt("ItemID") && categoryResults.next())
 				{
-                    itemCategory = result.getString("Span");
+                    itemCategory += (categoryResults.getString("Category") + " ");
                 }
+
                 doc = new Document();
-                doc.add(new StringField("ItemID", String.valueOf(results.getInt("ItemID")), Field.Store.YES));
-                doc.add(new TextField("ItemName", results.getString("ItemName"), Field.Store.YES));
-                doc.add(new TextField("Description", results.getString("Description"), Field.Store.YES));
+                doc.add(new StringField("ItemID", String.valueOf(itemResults.getInt("ItemID")), Field.Store.YES));
+                doc.add(new TextField("ItemName", itemResults.getString("ItemName"), Field.Store.YES));
+                doc.add(new TextField("Description", itemResults.getString("Description"), Field.Store.YES));
                 doc.add(new TextField("ItemCategory", itemCategory, Field.Store.YES));
-                itemText = String.valueOf(results.getInt("ItemID")) + " " + results.getString("ItemName") + " " + itemCategory + " " + results.getString("Description");
+                itemText = String.valueOf(itemResults.getInt("ItemID")) + " " + itemResults.getString("ItemName") + " " + itemResults.getString("Description")  + " " + itemCategory ;
                 doc.add(new TextField("Content", itemText, Field.Store.NO));
+
                 writer.addDocument(doc);
 			}
+			 writer.close();
         }
-        catch (Exception ex) {
-            System.out.println(ex);
-        }
-
-        //close index writer
-        try {
-            writer.close();
-        }
-        catch (IOException ex) {
-            System.out.println(ex);
+        catch (Exception e)
+		{
+            System.out.println(e);
         }
 
         // close the database connection
-    	try {
-    	    conn.close();
-    	} catch (SQLException ex) {
-    	    System.out.println(ex);
-    	}
+	try {
+	    conn.close();
+	} catch (SQLException ex) {
+	    System.out.println(ex);
+	}
     }    
 
     public static void main(String args[]) {
