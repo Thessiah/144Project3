@@ -69,14 +69,8 @@ public class AuctionSearch implements IAuctionSearch {
 		{
 			IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(FSDirectory.open(new File("/var/lib/lucene/"))));
 			TopDocs results = searcher.search(new QueryParser("Content", new StandardAnalyzer()).parse(query), (numResultsToReturn + numResultsToSkip));
-			if ((results.totalHits < numResultsToSkip) || (numResultsToReturn <= 0))
-			{
-				
-				return resultList;
-			}
 			ArrayList<SearchResult> temp = new ArrayList<SearchResult>();
 			int counter = 0;
-			//ScoreDoc[] scores = results.scoreDocs;
 			Document doc = null;
 			for (int i = numResultsToSkip; i < results.totalHits; i++)
 			{
@@ -105,39 +99,44 @@ public class AuctionSearch implements IAuctionSearch {
 		try
 		{
 			Connection connection = DbManager.getConnection(true);
-			SearchResult[] results = basicSearch(query, numResultsToSkip, numResultsToReturn);
-			System.out.println(results.length);
-			ArrayList<SearchResult> temp = new ArrayList<SearchResult>();
+			SearchResult[] results = basicSearch(query, 0, Integer.MAX_VALUE);
+			ArrayList<SearchResult> tempResults = new ArrayList<SearchResult>();
+			ArrayList<SearchResult> returnResults = new ArrayList<SearchResult>();
 			ResultSet locations = null;
-			String location = "";
-			String[] locationList = null;
-			int counter = 0;
-			for (SearchResult currResult : results)
+			String temp = "";
+			String[] location = null;
+			Double latitude;
+			Double longitude;
+			for (int i = 0; i < results.length; i++)
 			{
-				if (counter > numResultsToReturn)
-				{
-					break;
-				}
-				locations = connection.createStatement().executeQuery("SELECT ItemID, AsText(Location) FROM SpatialTable WHERE ItemID =" + currResult.getItemId()); 
+				locations = connection.createStatement().executeQuery("SELECT ItemID, AsText(Location) FROM SpatialTable WHERE ItemID =" + results[i].getItemId()); 
 				if (locations.next())
 				{
-					location = locations.getString("AsText(Location)");
-					System.out.println(location);
-					locationList = location.substring(6, location.length() - 1).split(" ");
-					if (Double.parseDouble(locationList[0]) <= region.getRx() && Double.parseDouble(locationList[0]) >= region.getLx())
+					temp = locations.getString("AsText(Location)");
+					location = temp.substring(6, temp.length() - 1).split(" ");
+					latitude = Double.parseDouble(location[0]);
+					longitude = Double.parseDouble(location[1]);
+					if (latitude <= region.getRx() && latitude >= region.getLx())
 					{
-						if (Double.parseDouble(locationList[1]) <= region.getRy() && Double.parseDouble(locationList[1]) >= region.getLy())
+						if (longitude <= region.getRy() && longitude >= region.getLy())
 						{
-							if (counter < numResultsToSkip)
-								continue;
-							temp.add(currResult);
-							counter++;
+							tempResults.add(results[i]);
 						}
 					}
 				}
 			}
-			resultList = new SearchResult[temp.size()];
-			resultList = temp.toArray(resultList);
+			int counter = 0;
+			for(int i = numResultsToSkip; i < tempResults.size(); i++)
+			{
+				if (counter >= numResultsToReturn)
+				{
+					break;
+				}
+				returnResults.add(tempResults.get(i));
+				counter++;
+			}
+			resultList = new SearchResult[returnResults.size()];
+			resultList = returnResults.toArray(resultList);
 		}
         catch (Exception e)
         {
@@ -152,79 +151,84 @@ public class AuctionSearch implements IAuctionSearch {
 		try
 		{
 			Connection conn = DbManager.getConnection(true);
-			Statement stmt = conn.createStatement();
-			ResultSet item = stmt.executeQuery("SELECT * FROM Items WHERE ItemID =" + itemId);
+			Statement itemStatement = conn.createStatement();
+			ResultSet item = itemStatement.executeQuery("SELECT * FROM Items WHERE ItemID =" + itemId);
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			org.w3c.dom.Document document = builder.newDocument();
 			Element root = document.createElement("Item");
 			root.setAttribute("ItemID", itemId);
 			document.appendChild(root);
+			SimpleDateFormat startingFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			SimpleDateFormat endFormat = new SimpleDateFormat("MMM-dd-yy HH:mm:ss");
 			if (item.next())
 			{
 				Element name = document.createElement("Name");
 				name.appendChild(document.createTextNode(item.getString("ItemName")));
 				root.appendChild(name);
-				Statement stmt2 = conn.createStatement();
-				ResultSet cats = stmt2.executeQuery("SELECT Category FROM ItemCategory WHERE ItemID =" + itemId);
+				Statement categoriesStatement = conn.createStatement();
+				ResultSet categories = categoriesStatement.executeQuery("SELECT Category FROM ItemCategory WHERE ItemID =" + itemId);
 				Element category;
-				while (cats.next())
+				while (categories.next())
 				{
 					category = document.createElement("Category");
-					category.appendChild(document.createTextNode(cats.getString("Category")));
+					category.appendChild(document.createTextNode(categories.getString("Category")));
 					root.appendChild(category);
 				}
 				Element currently = document.createElement("Currently");
-				currently.appendChild(document.createTextNode("$" + item.getString("currentHighestBid")));
+				currently.appendChild(document.createTextNode("$" + item.getString("CurrentHighestBid")));
 				root.appendChild(currently);
-				Element buyprice = document.createElement("BuyPrice");
-				String buypriceTemp = item.getString("BuyPrice");
-				if (item.wasNull())
+				String buyPriceString = item.getString("BuyPrice");
+				if (!item.wasNull())
 				{
-					buypriceTemp = "";
+					Element buyPrice = document.createElement("Buy_Price");
+					buyPrice.appendChild(document.createTextNode("$" + buyPriceString));
+					root.appendChild(buyPrice);
 				}
-				else
-				{
-					buyprice.appendChild(document.createTextNode("$" + buypriceTemp));
-				}
-				root.appendChild(buyprice);
-				Element firstbid = document.createElement("FirstBid");
-				firstbid.appendChild(document.createTextNode("$" + item.getString("FirstBid")));
-				root.appendChild(firstbid);
-				Element numberofbids = document.createElement("NumberOfBids");
-				numberofbids.appendChild(document.createTextNode(item.getString("NumberOfBids")));
-				root.appendChild(numberofbids);
-				Statement stmt3 = conn.createStatement();
-				ResultSet bidset = stmt3.executeQuery("SELECT * FROM Bids, Users WHERE Bids.UserID = Users.UserID AND Bids.ItemID = " + itemId );
+				Element firstBid = document.createElement("First_Bid");
+				firstBid.appendChild(document.createTextNode("$" + item.getString("FirstBid")));
+				root.appendChild(firstBid);
+				Element numberOfBids = document.createElement("Number_of_Bids");
+				numberOfBids.appendChild(document.createTextNode(item.getString("NumberOfBids")));
+				root.appendChild(numberOfBids);
+				Statement bidsStatement = conn.createStatement();
+				ResultSet bidSet = bidsStatement.executeQuery("SELECT * FROM Bids, Users WHERE Bids.UserID = Users.UserID AND Bids.ItemID = " + itemId );
 				Element bids = document.createElement("Bids");
-				while (bidset.next())
+				while (bidSet.next())
 				{
 					Element bid = document.createElement("Bid");
 					Element bidder = document.createElement("Bidder");
-					bidder.setAttribute("Rating", bidset.getString("BidderRating"));
-					bidder.setAttribute("UserID", bidset.getString("BidderID"));
-					Element location = document.createElement("Location");
-					location.appendChild(document.createTextNode(bidset.getString("Address")));
-					bidder.appendChild(location);
-					Element country = document.createElement("Country");
-					country.appendChild(document.createTextNode(bidset.getString("Country")));
-					bidder.appendChild(country);
+					bidder.setAttribute("Rating", bidSet.getString("BuyerRating"));
+					bidder.setAttribute("UserID", bidSet.getString("UserID"));
+					
+					String addressText = bidSet.getString("Address");
+					if(!bidSet.wasNull())
+					{
+						Element location = document.createElement("Location");
+						location.appendChild(document.createTextNode(addressText));
+						bidder.appendChild(location);
+					}
+					String countryText = bidSet.getString("Country");
+					if(!bidSet.wasNull())
+					{
+						Element country = document.createElement("Country");
+						country.appendChild(document.createTextNode(countryText));
+						bidder.appendChild(country);
+					}
 					bid.appendChild(bidder);
-					SimpleDateFormat currentForm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-					SimpleDateFormat desiredForm = new SimpleDateFormat("MMM-dd-yy HH:mm:ss");
-					Date tempD = currentForm.parse(bidset.getString("Time"));
+					Date date = startingFormat.parse(bidSet.getString("BidTime"));
 					Element time = document.createElement("Time");
-					time.appendChild(document.createTextNode(desiredForm.format(tempD)));
+					time.appendChild(document.createTextNode(endFormat.format(date)));
 					bid.appendChild(time);
 					Element amount = document.createElement("Amount");
-					amount.appendChild(document.createTextNode(bidset.getString("Amount")));
+					amount.appendChild(document.createTextNode(bidSet.getString("Amount")));
 					bid.appendChild(amount);
 					bids.appendChild(bid);
 				}
 				root.appendChild(bids);
 				Element location = document.createElement("Location");
-				String temp = item.getString("Latitude");
-				if (item.wasNull() == false)
+				String locationString = item.getString("Latitude");
+				if (!item.wasNull())
 				{
 					location.setAttribute("Latitude", item.getString("Latitude"));
 					location.setAttribute("Longitude", item.getString("Longitude"));
@@ -234,23 +238,22 @@ public class AuctionSearch implements IAuctionSearch {
 				Element country = document.createElement("Country");
 				country.appendChild(document.createTextNode(item.getString("Country")));
 				root.appendChild(country);
-				SimpleDateFormat currentForm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-				SimpleDateFormat desiredForm = new SimpleDateFormat("MMM-dd-yy HH:mm:ss");
-				Date tempDate = currentForm.parse(item.getString("StartTime"));;
+
+				Date date = startingFormat.parse(item.getString("StartTime"));;
 				Element started = document.createElement("Started");
-				started.appendChild(document.createTextNode(desiredForm.format(tempDate)));
+				started.appendChild(document.createTextNode(endFormat.format(date)));
 				root.appendChild(started);
-				tempDate = currentForm.parse(item.getString("EndTime"));
+				date = startingFormat.parse(item.getString("EndTime"));
 				Element ends = document.createElement("Ends");
-				ends.appendChild(document.createTextNode(desiredForm.format(tempDate)));
+				ends.appendChild(document.createTextNode(endFormat.format(date)));
 				root.appendChild(ends);
-				Statement stmt4 = conn.createStatement();
-				ResultSet sellerset = stmt4.executeQuery("SELECT * FROM Items, Users WHERE Items.UserID = Users.UserID AND Items.ItemID = " + itemId);
-				if (sellerset.next())
+				Statement sellerStatement = conn.createStatement();
+				ResultSet sellerSet = sellerStatement.executeQuery("SELECT * FROM Items, Users WHERE Items.UserID = Users.UserID AND Items.ItemID = " + itemId);
+				if (sellerSet.next())
 				{
 					Element seller = document.createElement("Seller");
-					seller.setAttribute("Rating", sellerset.getString("SellerRating"));
-					seller.setAttribute("UserID", sellerset.getString("UserID"));
+					seller.setAttribute("SellerRating", sellerSet.getString("SellerRating"));
+					seller.setAttribute("UserID", sellerSet.getString("UserID"));
 					root.appendChild(seller);
 				}
 				Element description = document.createElement("Description");

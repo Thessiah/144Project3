@@ -81,7 +81,7 @@ public class Indexer {
                 doc.add(new TextField("ItemName", itemResults.getString("ItemName"), Field.Store.YES));
                 doc.add(new TextField("Description", itemResults.getString("Description"), Field.Store.YES));
                 doc.add(new TextField("ItemCategory", itemCategory, Field.Store.YES));
-                itemText = String.valueOf(itemResults.getInt("ItemID")) + " " + itemResults.getString("ItemName") + " " + itemResults.getString("Description")  + " " + itemCategory ;
+                itemText = itemResults.getString("ItemName") + " " + itemCategory + " " + itemResults.getString("Description");
                 doc.add(new TextField("Content", itemText, Field.Store.NO));
 
                 writer.addDocument(doc);

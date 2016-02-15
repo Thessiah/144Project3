@@ -20,6 +20,7 @@ public class AuctionSearchTest {
 		SearchResult[] basicResults = as.basicSearch(query, 0, 20);
 		System.out.println("Basic Seacrh Query: " + query);
 		System.out.println("Received " + basicResults.length + " results");
+
 		for(SearchResult result : basicResults) {
 			System.out.println(result.getItemId() + ": " + result.getName());
 		}
@@ -38,6 +39,25 @@ public class AuctionSearchTest {
 		System.out.println("XML data for ItemId: " + itemId);
 		System.out.println(item);
 
+		query = "kitchenware";
+		basicResults = as.basicSearch(query, 0, 2000);
+		System.out.println("Basic Seacrh Query: " + query);
+		System.out.println("Received " + basicResults.length + " results");
+
+		query = "star trek";
+		basicResults = as.basicSearch(query, 0, 2000);
+		System.out.println("Basic Seacrh Query: " + query);
+		System.out.println("Received " + basicResults.length + " results");
+
+		itemId = "1043374545";
+		item = as.getXMLDataForItemId(itemId);
+		System.out.println("XML data for ItemId: " + itemId);
+		System.out.println(item);
+
+		itemId = "1043495702";
+		item = as.getXMLDataForItemId(itemId);
+		System.out.println("XML data for ItemId: " + itemId);
+		System.out.println(item);
 		// Add your own test here
 	}
 }
